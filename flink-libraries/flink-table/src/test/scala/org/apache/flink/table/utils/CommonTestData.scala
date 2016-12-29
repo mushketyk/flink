@@ -19,9 +19,16 @@
 package org.apache.flink.table.utils
 
 import java.io.{File, FileOutputStream, OutputStreamWriter}
+import java.util
 
-import org.apache.flink.api.common.typeinfo.BasicTypeInfo
-import org.apache.flink.table.sources.CsvTableSource
+import org.apache.flink.api.common.ExecutionConfig
+import org.apache.flink.api.common.typeinfo.{BasicTypeInfo, TypeInformation}
+import org.apache.flink.api.common.typeutils.TypeSerializer
+import org.apache.flink.api.java.typeutils.{PojoField, PojoTypeInfo}
+import org.apache.flink.api.java.{DataSet, ExecutionEnvironment}
+import org.apache.flink.api.scala.typeutils.CaseClassTypeInfo
+import org.apache.flink.table.sources.{AbstractBatchTableSource, BatchTableSource, CsvTableSource, TableSource}
+import org.apache.flink.api.scala._
 
 object CommonTestData {
 
@@ -60,4 +67,39 @@ object CommonTestData {
       ignoreComments = "%"
     )
   }
+
+  def getNestedTableSource: BatchTableSource[Person] = {
+    new AbstractBatchTableSource[Person] {
+      override def getDataSet(execEnv: ExecutionEnvironment): DataSet[Person] = {
+        val executionEnvironment = ExecutionEnvironment.getExecutionEnvironment
+        executionEnvironment.fromCollection(
+          util.Arrays.asList(
+            new Person("Mike", "Smith", new Address("5th Ave", "New-York")),
+            new Person("Sally", "Miller", new Address("Potsdamer Platz", "Berlin")),
+            new Person("Bob", "Taylor", new Address("Pearse Street", "Dublin"))),
+          getReturnType
+        )
+      }
+
+      /** Returns the [[TypeInformation]] for the return type of the [[TableSource]]. */
+      override def getReturnType: TypeInformation[Person] = new PojoTypeInfo[Person](
+        classOf[Person],
+        util.Arrays.asList(
+          new PojoField(classOf[Person].getDeclaredField("firstName"), BasicTypeInfo.STRING_TYPE_INFO),
+          new PojoField(classOf[Person].getDeclaredField("lastName"), BasicTypeInfo.STRING_TYPE_INFO),
+          new PojoField(classOf[Person].getDeclaredField("address"), new PojoTypeInfo[Address](
+            classOf[Address],
+            util.Arrays.asList(
+              new PojoField(classOf[Address].getDeclaredField("street"), BasicTypeInfo.SHORT_TYPE_INFO),
+              new PojoField(classOf[Address].getDeclaredField("city"), BasicTypeInfo.SHORT_TYPE_INFO)
+            )
+          ))
+        )
+      )
+    }
+  }
+
+  case class Person(firstName: String, lastName: String, address: Address)
+
+  case class Address(street: String, city: String)
 }

@@ -20,9 +20,8 @@ package org.apache.flink.table.plan.schema
 
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory}
 import org.apache.calcite.schema.impl.AbstractTable
-import org.apache.flink.api.common.typeinfo.{AtomicType, TypeInformation}
-import org.apache.flink.api.common.typeutils.CompositeType
-import org.apache.flink.table.api.TableException
+import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.table.api.{TableEnvironment, TableException}
 import org.apache.flink.table.calcite.FlinkTypeFactory
 
 abstract class FlinkTable[T](
@@ -42,22 +41,16 @@ abstract class FlinkTable[T](
       "Table field names must be unique.")
   }
 
-  val fieldTypes: Array[TypeInformation[_]] =
-    typeInfo match {
-      case cType: CompositeType[_] =>
-        if (fieldNames.length != cType.getArity) {
-          throw new TableException(
-          s"Arity of type (" + cType.getFieldNames.deep + ") " +
-            "not equal to number of field names " + fieldNames.deep + ".")
-        }
-        fieldIndexes.map(cType.getTypeAt(_).asInstanceOf[TypeInformation[_]])
-      case aType: AtomicType[_] =>
-        if (fieldIndexes.length != 1 || fieldIndexes(0) != 0) {
-          throw new TableException(
-            "Non-composite input type may have only a single field and its index must be 0.")
-        }
-        Array(aType)
+  val fieldTypes: Array[TypeInformation[_]] = {
+    val fieldNames = TableEnvironment.getFieldNames(typeInfo)
+    if (fieldNames.length == fieldIndexes.length) {
+      TableEnvironment.getFieldTypes(typeInfo)
+    } else {
+      throw new TableException(
+        s"Arity of type (" + fieldNames.deep + ") " +
+          "not equal to number of field names " + fieldNames.deep + ".")
     }
+  }
 
   override def getRowType(typeFactory: RelDataTypeFactory): RelDataType = {
     val flinkTypeFactory = typeFactory.asInstanceOf[FlinkTypeFactory]

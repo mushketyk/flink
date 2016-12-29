@@ -16,13 +16,8 @@
  * limitations under the License.
  */
 
-package org.apache.flink.table.plan.schema
+package org.apache.flink.table.sources
 
-import org.apache.flink.table.sources.TableSource
+trait BatchStreamTableSource[T] extends BatchTableSource[T] with StreamTableSource[T] {
 
-/** Table which defines an external table via a [[TableSource]] */
-class TableSourceTable[T](val tableSource: TableSource[T])
-  extends FlinkTable[T](
-    typeInfo = tableSource.getReturnType,
-    fieldIndexes = tableSource.getFieldsIndices,
-    fieldNames = tableSource.getFieldsNames)
+}
